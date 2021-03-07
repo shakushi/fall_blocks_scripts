@@ -108,8 +108,6 @@ class CubeMapNode
     +CubeCtlr Obj
 }
 
-ChangeMatColor --> Cube_Color
-
 CubeCtlr --> Cube_Color
 CubeCtlr --> Cube_Collider
 CubeCtlr --> Cube_enabled
