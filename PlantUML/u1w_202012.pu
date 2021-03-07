@@ -1,0 +1,147 @@
+@startuml u1w-design
+
+package Monovihaviour世界
+{
+class CubeCtlr
+{
+    +enum CubeState
+    +void SetInitColor(Color input)
+    +ChangeState(CubeState state)
+    +int CubeID[get,set]
+    +CubeManager Manager[set]
+}
+
+class CubeManager
+{
+    +void ISetPause(bool value)
+    +void InChangeColor(int cubeid, int color)
+    +Color INWakeup(int cubeid)
+    +GameObject CubesParent
+    +ScoreCtlr ScoreCtlr
+    +SEPlayer SEPlayer
+}
+
+class GameSceneCtlr
+{
+    +void StartGame()
+    +void CreateResultScene()
+    +void GotoTitleScene()
+}
+
+class InputCtlr
+{
+    +PlayerCtlr Player
+    +GameSceneCtlr GameSceneCtlr
+}
+
+class OutField
+
+class PlayerCtlr
+{
+    +void IPOnStickInput(Vector3 normalInput)
+    +bool IPGetPause()
+    +void IPSetPause(bool value)
+    +void InResult()
+    +void IPRespone()
+}
+
+class ScoreCtlr
+{
+    +void AddScore(int num, float bonus)
+    +TMP_Text ScoreText
+    +TMP_Text SubScoreText
+    +int Score[get]
+}
+
+class SEPlayer
+{
+    +void PlaySound(int num)
+    +AudioClip sound1
+    +AudioClip sound2
+    +AudioClip sound3
+    +AudioClip sound4
+    +AudioClip sound5
+}
+
+class SimpleAnimator
+{
+    +CrossFade()
+    +List<AnimationClip> clipList
+}
+
+class Timer
+{
+    +void StartTimer()
+    +void SetPause(bool value)
+    +Image GageImage
+    +GameSceneCtlr GameSceneCtlr
+}
+
+'class TitleAnimation
+'class TitleSceneCtlr
+'{
+'    +void GoToGameMain()
+'}
+package View
+{
+class Player_transform << (V,SkyBlue) >>
+class ScoreText << (V,SkyBlue) >>
+class Cube_Color << (V,SkyBlue) >>
+class Cube_Collider << (V,SkyBlue) >>
+class Cube_enabled << (V,SkyBlue) >>
+class OnPreStartUI << (V,SkyBlue) >>
+class OnResultUI << (V,SkyBlue) >>
+class BGMObj << (V,SkyBlue) >>
+class GageImage << (V,SkyBlue) >>
+}
+}
+
+class CubeMapNode
+{
+    +CubeMapNode(int index, int color)
+    +int index
+    +int Color
+    +CubeMapNode RightNode
+    +CubeMapNode LeftNode
+    +CubeMapNode UpNode
+    +CubeMapNode DownNode
+    +CubeCtlr Obj
+}
+
+ChangeMatColor --> Cube_Color
+
+CubeCtlr --> Cube_Color
+CubeCtlr --> Cube_Collider
+CubeCtlr --> Cube_enabled
+CubeCtlr --> CubeManager
+CubeCtlr --> PlayerCtlr
+
+CubeManager --> ScoreCtlr
+CubeManager --> SEPlayer
+CubeManager --> CubeMapNode
+CubeManager --> CubeCtlr
+
+CubeMapNode --> CubeCtlr
+
+GameSceneCtlr --> PlayerCtlr
+GameSceneCtlr --> Timer
+GameSceneCtlr --> ScoreCtlr
+GameSceneCtlr --> OnPreStartUI
+GameSceneCtlr --> OnResultUI
+GameSceneCtlr --> SEPlayer
+GameSceneCtlr --> BGMObj
+
+InputCtlr --> GameSceneCtlr
+InputCtlr --> PlayerCtlr
+
+OutField --> PlayerCtlr
+
+PlayerCtlr --> SimpleAnimator
+PlayerCtlr --> Player_transform
+
+ScoreCtlr --> ScoreText
+
+Timer --> GageImage
+Timer --> GameSceneCtlr
+
+@enduml
