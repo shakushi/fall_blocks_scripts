@@ -1,16 +1,18 @@
 ﻿public class CubeMapNode
 {
     public int Index;
-    public int Color;
+    public CubeColor CubeColor;
     public CubeMapNode RightNode;
     public CubeMapNode LeftNode;
     public CubeMapNode UpNode;
     public CubeMapNode DownNode;
     public CubeCtlr Obj;
 
-    public CubeMapNode(int index, int color)
+    public CubeMapNode(CubeCtlr ctlr)
     {
-        Index = index;
-        Color = color;
+        Index = ctlr.CubeID;
+        Obj = ctlr;
+        CubeColor = new CubeColor();
     }
+
 }

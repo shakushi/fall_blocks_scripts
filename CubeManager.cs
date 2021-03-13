@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CubeManager : MonoBehaviour
+public class CubeManager : MonoBehaviour,ICubeManager
 {
     [SerializeField]
     public GameObject CubesParent;
@@ -13,26 +13,20 @@ public class CubeManager : MonoBehaviour
 
     private List<CubeMapNode> cube_map = new List<CubeMapNode>();
     private GameObject cube_prefab;
-    private bool isPause = false;
     private List<CubeMapNode> connect_list = new List<CubeMapNode>();
     private List<CubeMapNode> vanish_list = new List<CubeMapNode>();
     private float bonusNum;
 
-    private static int inSleepColor = 0;
     private static int connectNum = 4; //繋がって消えるようになる数
 
-    public void ISetPause(bool value)
-    {
-        isPause = value;
-    }
-
-    public void InChangeColor(int cubeid, int color)
+    public void InCubeTrigger(int cubeid)
     {
         int count = 0;
         connect_list.Clear();
-
         CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
-        thisnode.Color = color;
+        thisnode.CubeColor.TransColor();
+
+        //check vanish event
         count += checkRightNode(thisnode, connect_list);
         count += checkLeftNode(thisnode, connect_list);
         count += checkUpNode(thisnode, connect_list);
@@ -42,13 +36,15 @@ public class CubeManager : MonoBehaviour
             connect_list.Add(thisnode);
             foreach (CubeMapNode node in connect_list)
             {
-                node.Obj.ChangeState(CubeCtlr.CubeState.in_vanish);
+                node.Obj.ChangeState(CubeCtlr.CubeState.goto_vanish);
+                node.Obj.SetColor(node.CubeColor.TransWarnColor());
             }
             StartCoroutine("vanishCubeWithWait", thisnode.Index);
             SEPlayer.PlaySound(3);
         }
         else
         {
+            thisnode.Obj.SetColor(thisnode.CubeColor.Color);
             SEPlayer.PlaySound(2);
         }
         //Debug.Log("(id, color)=(" + cubeid + ", " + color + ") count=" + count);
@@ -57,9 +53,7 @@ public class CubeManager : MonoBehaviour
     public Color InWakeup(int cubeid)
     {
         CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
-        Color new_color = initColor();
-        thisnode.Color = new_color.GetHashCode();
-        return new_color;
+        return thisnode.CubeColor.ResetColor();
     }
 
     // Start is called before the first frame update
@@ -74,18 +68,23 @@ public class CubeManager : MonoBehaviour
         GameObject cube_obj;
         for (int i = 0; i < 25; i++)
         {
+            // Instatiate
             cube_obj = Instantiate(cube_prefab, new Vector3((-4f + i%5*2), -2f, (-4f + i/5*2)), Quaternion.identity);
             cube_obj.transform.parent = CubesParent.transform;
             cube_obj.gameObject.name = "cube_" + i.ToString();
+
+            // Add new node
             CubeCtlr cube_ctlr = cube_obj.GetComponent<CubeCtlr>();
             cube_ctlr.Manager = this;
             cube_ctlr.CubeID = i;
-            Color color = initColor();
-            cube_ctlr.SetInitColor(color);
-            CubeMapNode newnode = new CubeMapNode(i, color.GetHashCode());
-            newnode.Obj = cube_ctlr;
+            CubeMapNode newnode = new CubeMapNode(cube_ctlr);
             cube_map.Add(newnode);
+
+            // Initialize Cube Color
+            cube_ctlr.SetColor(newnode.CubeColor.Color);
         }
+
+        // Add pointer of neighborhood
         foreach (CubeMapNode node in cube_map)
         {
             if (node.Index % 5 != 4)
@@ -124,24 +123,6 @@ public class CubeManager : MonoBehaviour
         }
     }
 
-    private Color initColor()
-    {
-        int index = Random.Range(0, 4);
-        switch (index)
-        {
-            case 0:
-                return Color.red;
-            case 1:
-                return Color.yellow;
-            case 2:
-                return Color.green;
-            case 3:
-                return Color.blue;
-            default:
-                return Color.black;
-        }
-    }
-
     private IEnumerator vanishCubeWithWait(int index)
     {
         yield return new WaitForSeconds(3f);
@@ -150,12 +131,14 @@ public class CubeManager : MonoBehaviour
 
     private void vanishCube(int cubeid)
     {
-        Debug.Log("vanishCube Enter");
+        //Debug.Log("vanishCube Enter");
         int count = 0;
         vanish_list.Clear();
         bonusNum = 1f;
 
         CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
+        if (thisnode.Obj.State == CubeCtlr.CubeState.sleep) return;
+
         count += checkRightNode(thisnode, vanish_list);
         count += checkLeftNode(thisnode, vanish_list);
         count += checkUpNode(thisnode, vanish_list);
@@ -166,7 +149,6 @@ public class CubeManager : MonoBehaviour
             foreach (CubeMapNode node in vanish_list)
             {
                 node.Obj.ChangeState(CubeCtlr.CubeState.sleep);
-                node.Color = inSleepColor;
             }
             SEPlayer.PlaySound(4);
         }
@@ -216,11 +198,11 @@ public class CubeManager : MonoBehaviour
     private int checkRightNode(CubeMapNode node, List<CubeMapNode> list)
     {
         /* 右のノードがなくなるか、colorが一致しなくなるまで進み、数を返す */
-        if (node.RightNode == null)
+        if (node.RightNode == null || node.RightNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.RightNode.Color)
+        else if (node.CubeColor.Equals(node.RightNode.CubeColor))
         {
             if (!list.Contains(node.RightNode)) { list.Add(node.RightNode); }
             return 1 + checkUpNodeStraight(node.RightNode, list) + checkDownNodeStraight(node.RightNode, list) + checkRightNode(node.RightNode, list);
@@ -229,11 +211,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkLeftNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.LeftNode == null)
+        if (node.LeftNode == null || node.LeftNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.LeftNode.Color)
+        else if (node.CubeColor.Equals(node.LeftNode.CubeColor))
         {
             if (!list.Contains(node.LeftNode)) { list.Add(node.LeftNode); }
             return 1 + checkUpNodeStraight(node.LeftNode, list) + checkDownNodeStraight(node.LeftNode, list) + checkLeftNode(node.LeftNode, list);
@@ -242,11 +224,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkUpNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.UpNode == null)
+        if (node.UpNode == null || node.UpNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.UpNode.Color)
+        else if (node.CubeColor.Equals(node.UpNode.CubeColor))
         {
             if (!list.Contains(node.UpNode)) { list.Add(node.UpNode); }
             return 1 + checkRightNodeStraight(node.UpNode, list) + checkLeftNodeStraight(node.UpNode, list) + checkUpNode(node.UpNode, list);
@@ -255,11 +237,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkDownNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.DownNode == null)
+        if (node.DownNode == null || node.DownNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.DownNode.Color)
+        else if (node.CubeColor.Equals(node.DownNode.CubeColor))
         {
             if (!list.Contains(node.DownNode)) { list.Add(node.DownNode); }
             return 1 + checkRightNodeStraight(node.DownNode, list) + checkLeftNodeStraight(node.DownNode, list) + checkDownNode(node.DownNode, list);
@@ -269,11 +251,11 @@ public class CubeManager : MonoBehaviour
 
     private int checkRightNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.RightNode == null)
+        if (node.RightNode == null || node.RightNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.RightNode.Color)
+        else if (node.CubeColor.Equals(node.RightNode.CubeColor))
         {
             if (!list.Contains(node.RightNode)) { list.Add(node.RightNode); }
             //Debug.Log("right detect(" + node.Color + ")" + "|thisnode:" + node.Index + " right:" + node.RightNode.Index);
@@ -283,11 +265,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkLeftNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.LeftNode == null)
+        if (node.LeftNode == null || node.LeftNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.LeftNode.Color)
+        else if (node.CubeColor.Equals(node.LeftNode.CubeColor))
         {
             if (!list.Contains(node.LeftNode)) { list.Add(node.LeftNode); }
             //Debug.Log("left detect(" + node.Color + ")" + "|thisnode:" + node.Index + " left:" + node.LeftNode.Index);
@@ -297,11 +279,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkUpNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.UpNode == null)
+        if (node.UpNode == null || node.UpNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.UpNode.Color)
+        else if (node.CubeColor.Equals(node.UpNode.CubeColor))
         {
             if (!list.Contains(node.UpNode)) { list.Add(node.UpNode); }
             //Debug.Log("up detect(" + node.Color + ")" + "|thisnode:" + node.Index + " up:" + node.UpNode.Index);
@@ -311,11 +293,11 @@ public class CubeManager : MonoBehaviour
     }
     private int checkDownNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.DownNode == null)
+        if (node.DownNode == null || node.DownNode.Obj.State == CubeCtlr.CubeState.sleep)
         {
             return 0;
         }
-        else if (node.Color == node.DownNode.Color)
+        else if (node.CubeColor.Equals(node.DownNode.CubeColor))
         {
             if (!list.Contains(node.DownNode)) { list.Add(node.DownNode); }
             //Debug.Log("down detect(" + node.Color + ")" + "|thisnode:" + node.Index + " down:" + node.DownNode.Index);
