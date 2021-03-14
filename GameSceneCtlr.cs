@@ -9,8 +9,6 @@ public class GameSceneCtlr : MonoBehaviour
     [SerializeField]
     PlayerCtlr Player;
     [SerializeField]
-    Timer Timer;
-    [SerializeField]
     ScoreCtlr ScoreCtlr;
     [SerializeField]
     GameObject OnPreStartUI;
@@ -21,12 +19,31 @@ public class GameSceneCtlr : MonoBehaviour
     [SerializeField]
     GameObject BGMObj;
 
+    private TimePresenter timePresenter;
     private AudioSource bgmSource;
     private PlayableDirector director;
+    private bool inGame = false;
+    private float gameTime = 30f;
     private void Start()
     {
+        timePresenter = GetComponent<TimePresenter>();
         bgmSource = BGMObj.GetComponent<AudioSource>();
         director = GetComponent<PlayableDirector>();
+    }
+    void Update()
+    {
+        if (inGame)
+        {
+            gameTime -= Time.deltaTime;
+            if (gameTime <= 0)
+            {
+                gameTime = 0;
+                CreateResultScene();
+                inGame = false;
+            }
+            timePresenter.TimeUpdate(gameTime);
+        }
+
     }
 
     public void StartGame()
@@ -34,7 +51,7 @@ public class GameSceneCtlr : MonoBehaviour
         SEPlayer.PlaySound(1);
         OnPreStartUI.SetActive(false);
         Player.IPSetPause(false);
-        Timer.StartTimer();
+        startTimer();
     }
 
     public void CreateResultScene()
@@ -58,4 +75,10 @@ public class GameSceneCtlr : MonoBehaviour
         OnResultUI.SetActive(true);
         naichilab.RankingLoader.Instance.SendScoreAndShowRanking(ScoreCtlr.Score);
     }
+
+    private void startTimer()
+    {
+        inGame = true;
+    }
+
 }

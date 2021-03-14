@@ -8,7 +8,7 @@ using UnityEngine;
 public class PlayerCtlr : MonoBehaviour
 {
     /* SETTING VALUE */
-    private float moveSpeed = 3f;
+    private float moveSpeed = 3.5f;
     private Vector3 gravity = new Vector3(0, -1.5f, 0);
 
     private SimpleAnimator animator;
