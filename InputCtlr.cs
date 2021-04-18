@@ -50,7 +50,7 @@ public class InputCtlr : MonoBehaviour
 
         if (input != Vector3.zero)
         {
-            Player.IPOnStickInput(input.normalized);
+            Player.IPMoveOrder(input.normalized);
         }
     }
 }

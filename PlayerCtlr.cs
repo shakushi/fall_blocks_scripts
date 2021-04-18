@@ -26,13 +26,19 @@ public class PlayerCtlr : MonoBehaviour
     }
     private AnimState animationState = AnimState.stand;
 
-    public void IPOnStickInput(Vector3 normalInput)
+    public void IPMoveOrder(Vector3 normalInput)
     {
         if(normalInput == null) { return; }
 
         tmpFlagMove = true;
         inputDir = normalInput;
     }
+
+    public void IPDashOrder()
+    {
+        Debug.Log("IPDashOrder"); //TODO
+    }
+
     public bool IPGetPause()
     {
         return isPause;
