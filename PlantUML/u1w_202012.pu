@@ -150,7 +150,6 @@ package Monovihaviour世界
 {
 class CubeCtlr
 {
-    +enum CubeState
     +void SetColor(Color input)
     +ChangeState(CubeState state)
     +int CubeID[get,set]
@@ -166,10 +165,13 @@ interface ICubeManager
 class CubeManager
 {
     +void InCubeTrigger(int cubeid)
-    +Color INWakeup(int cubeid)
-    +GameObject CubesParent
     +ScoreCtlr ScoreCtlr
     +SEPlayer SEPlayer
+}
+
+class CubeInstanceMaker
+{
+    +GameObject CubesParent
 }
 
 class GameSceneCtlr
@@ -265,6 +267,11 @@ class CubeMapNode
     +CubeCtlr Obj
 }
 
+enum CubeState
+{
+
+}
+
 CubeCtlr --> Cube_Color
 CubeCtlr --> Cube_Collider
 CubeCtlr --> Cube_enabled
@@ -280,6 +287,7 @@ CubeManager --> CubeCtlr
 
 CubeMapNode --> CubeCtlr
 CubeMapNode --> CubeColor
+CubeMapNode --> CubeState
 
 GameSceneCtlr --> PlayerCtlr
 GameSceneCtlr --> TimePresenter

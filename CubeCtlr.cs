@@ -4,18 +4,8 @@ using UnityEngine;
 
 public class CubeCtlr : MonoBehaviour
 {
-    public enum CubeState
-    {
-        active,
-        goto_vanish,
-        sleep
-    }
+
     private MeshRenderer cube;
-    private CubeState nowstate = CubeState.active;
-    public CubeState State
-    {
-        get { return nowstate; }
-    }
     private BoxCollider groundCol;
 
     private int cubeid = -1;
@@ -35,23 +25,19 @@ public class CubeCtlr : MonoBehaviour
         changeMatColor(color);
     }
 
-    public void ChangeState(CubeState state)
+    public void SetSleep()
     {
-        if (nowstate != CubeState.sleep && state == CubeState.sleep)
-        {
-            nowstate = state;
-            setActiveCube(false);
-            StartCoroutine("wakeupCube");
-        }
-        else
-        {
-            nowstate = state;
-        }
+        setActiveCube(false);
+    }
+
+    public void WakeUp()
+    {
+        setActiveCube(true);
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player") && nowstate == CubeState.active)
+        if (other.CompareTag("Player"))
         {
             if (other.gameObject.GetComponent<PlayerCtlr>().IPGetPause() == false)
             {
@@ -71,14 +57,6 @@ public class CubeCtlr : MonoBehaviour
     private void changeMatColor(Color input)
     {
         cube.material.color = input;
-    }
-
-    private IEnumerator wakeupCube()
-    {
-        yield return new WaitForSeconds(2f);
-        changeMatColor(manager.InWakeup(CubeID));
-        ChangeState(CubeState.active);
-        setActiveCube(true);
     }
 
     private void setActiveCube(bool value)

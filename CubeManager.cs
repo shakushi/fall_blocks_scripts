@@ -1,20 +1,18 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using CubeOperater;
 
 public class CubeManager : MonoBehaviour,ICubeManager
 {
-    [SerializeField]
-    public GameObject CubesParent;
     [SerializeField]
     public ScoreCtlr ScoreCtlr;
     [SerializeField]
     public SEPlayer SEPlayer;
 
+    private CubeInstanceMaker cubeMaker;
     private List<CubeMapNode> cube_map = new List<CubeMapNode>();
-    private GameObject cube_prefab;
     private List<CubeMapNode> connect_list = new List<CubeMapNode>();
-    private List<CubeMapNode> vanish_list = new List<CubeMapNode>();
     private float bonusNum;
 
     private static int connectNum = 4; //繋がって消えるようになる数
@@ -24,6 +22,12 @@ public class CubeManager : MonoBehaviour,ICubeManager
         int count = 0;
         connect_list.Clear();
         CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
+        //state check
+        if (thisnode.State != CubeMapNode.CubeState.active)
+        {
+            return;
+        }
+
         thisnode.CubeColor.TransColor();
 
         //check vanish event
@@ -36,7 +40,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
             connect_list.Add(thisnode);
             foreach (CubeMapNode node in connect_list)
             {
-                node.Obj.ChangeState(CubeCtlr.CubeState.goto_vanish);
+                node.State = CubeMapNode.CubeState.goto_vanish;
                 node.Obj.SetColor(node.CubeColor.TransWarnColor());
             }
             StartCoroutine("vanishCubeWithWait", thisnode.Index);
@@ -50,38 +54,19 @@ public class CubeManager : MonoBehaviour,ICubeManager
         //Debug.Log("(id, color)=(" + cubeid + ", " + color + ") count=" + count);
     }
 
-    public Color InWakeup(int cubeid)
-    {
-        CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
-        return thisnode.CubeColor.ResetColor();
-    }
-
     // Start is called before the first frame update
     void Awake()
     {
-        cube_prefab = (GameObject)Resources.Load("Cube");
+        cubeMaker = GetComponent<CubeInstanceMaker>();
         makeCubes();
     }
 
     private void makeCubes()
     {
-        GameObject cube_obj;
         for (int i = 0; i < 25; i++)
         {
             // Instatiate
-            cube_obj = Instantiate(cube_prefab, new Vector3((-4f + i%5*2), -2f, (-4f + i/5*2)), Quaternion.identity);
-            cube_obj.transform.parent = CubesParent.transform;
-            cube_obj.gameObject.name = "cube_" + i.ToString();
-
-            // Add new node
-            CubeCtlr cube_ctlr = cube_obj.GetComponent<CubeCtlr>();
-            cube_ctlr.Manager = this;
-            cube_ctlr.CubeID = i;
-            CubeMapNode newnode = new CubeMapNode(cube_ctlr);
-            cube_map.Add(newnode);
-
-            // Initialize Cube Color
-            cube_ctlr.SetColor(newnode.CubeColor.Color);
+            cube_map.Add(cubeMaker.MakeInstanceAndGetNode(i, new Vector3((-4f + i % 5 * 2), -2f, (-4f + i / 5 * 2)), this));
         }
 
         // Add pointer of neighborhood
@@ -133,11 +118,12 @@ public class CubeManager : MonoBehaviour,ICubeManager
     {
         //Debug.Log("vanishCube Enter");
         int count = 0;
+        List<CubeMapNode> vanish_list = new List<CubeMapNode>();
         vanish_list.Clear();
         bonusNum = 1f;
 
         CubeMapNode thisnode = cube_map.Find(_ => _.Index == cubeid);
-        if (thisnode.Obj.State == CubeCtlr.CubeState.sleep) return;
+        if (thisnode.State == CubeMapNode.CubeState.sleep) return;
 
         count += checkRightNode(thisnode, vanish_list);
         count += checkLeftNode(thisnode, vanish_list);
@@ -148,14 +134,27 @@ public class CubeManager : MonoBehaviour,ICubeManager
             vanish_list.Add(thisnode);
             foreach (CubeMapNode node in vanish_list)
             {
-                node.Obj.ChangeState(CubeCtlr.CubeState.sleep);
+                node.State = CubeMapNode.CubeState.sleep;
+                node.Obj.SetSleep();
             }
+            StartCoroutine("wakeupCube", vanish_list); //vanish_listの値コピーが必要
             SEPlayer.PlaySound(4);
         }
 
         bonusNum = checkBonus(vanish_list);
 
         ScoreCtlr.AddScore(vanish_list.Count, bonusNum);
+    }
+
+    private IEnumerator wakeupCube(List<CubeMapNode> nodes)
+    {
+        yield return new WaitForSeconds(2f);
+        foreach (CubeMapNode node in nodes)
+        {
+            node.Obj.SetColor(node.CubeColor.ResetColor());
+            node.State = CubeMapNode.CubeState.active;
+            node.Obj.WakeUp();
+        }        
     }
 
     private float checkBonus(List<CubeMapNode> list)
@@ -198,7 +197,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     private int checkRightNode(CubeMapNode node, List<CubeMapNode> list)
     {
         /* 右のノードがなくなるか、colorが一致しなくなるまで進み、数を返す */
-        if (node.RightNode == null || node.RightNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.RightNode == null || node.RightNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -211,7 +210,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkLeftNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.LeftNode == null || node.LeftNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.LeftNode == null || node.LeftNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -224,7 +223,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkUpNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.UpNode == null || node.UpNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.UpNode == null || node.UpNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -237,7 +236,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkDownNode(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.DownNode == null || node.DownNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.DownNode == null || node.DownNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -251,7 +250,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
 
     private int checkRightNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.RightNode == null || node.RightNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.RightNode == null || node.RightNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -265,7 +264,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkLeftNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.LeftNode == null || node.LeftNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.LeftNode == null || node.LeftNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -279,7 +278,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkUpNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.UpNode == null || node.UpNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.UpNode == null || node.UpNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
@@ -293,7 +292,7 @@ public class CubeManager : MonoBehaviour,ICubeManager
     }
     private int checkDownNodeStraight(CubeMapNode node, List<CubeMapNode> list)
     {
-        if (node.DownNode == null || node.DownNode.Obj.State == CubeCtlr.CubeState.sleep)
+        if (node.DownNode == null || node.DownNode.State == CubeMapNode.CubeState.sleep)
         {
             return 0;
         }
